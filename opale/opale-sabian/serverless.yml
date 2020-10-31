@@ -11,7 +11,7 @@
 #
 # Happy Coding!
 
-service: resize-sabian-image
+service: opale-sabian
 # app and org for use with dashboard.serverless.com
 #app: your-app-name
 #org: your-org-name
@@ -35,17 +35,8 @@ provider:
   iamRoleStatements:
     - Effect: "Allow"
       Action:
-        - "s3:*"
-      Resource: arn:aws:s3:::sabian-symbols/*
-    - Effect: "Allow"
-      Action:
-        - "s3:*"
-      Resource: arn:aws:s3:::sabian-symbols-full-size/*
-    - Effect: "Allow"
-      Action:
         - 's3:*'
-      Resource: 'arn:aws:s3:::opale-sabian/*'
-
+      Resource: 'arn:aws:s3:::${self:service.name}/*'
 #    - Effect: "Allow"
 #      Action:
 #        - "s3:PutObject"
@@ -72,21 +63,6 @@ provider:
 functions:
   hello:
     handler: handler.hello
-    layers:
-      - arn:aws:lambda:ap-northeast-1:#{AWS::AccountId}:layer:python-pillow:1
-  resize_put_image:
-    handler: handler.resize_put_image
-    layers:
-      - arn:aws:lambda:ap-northeast-1:#{AWS::AccountId}:layer:python-pillow:1
-    events:
-      - s3:
-          bucket: sabian-symbols-full-size
-          events:
-            - "s3:ObjectCreated:*"
-          rules:
-            - suffix: .jpg
-
-
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
@@ -130,29 +106,10 @@ functions:
 # you can add CloudFormation resource templates here
 resources:
   Resources:
-    FullSizeSabianImageS3BucketPolicy:
-      Type: AWS::S3::BucketPolicy
+    S3Bucket:
+      Type: AWS::S3::Bucket
       Properties:
-        Bucket: sabian-symbols-full-size
-        PolicyDocument:
-          Statement:
-            - Sid: FullSizeSabianImage
-              Effect: Allow
-              Principal: "*"
-              Action:
-              - s3:GetObject
-              Resource: "arn:aws:s3:::sabian-symbols-full-size/*"
-              Condition:
-                StringLike:
-                  aws:Referer:
-                    - https://sabian-calculator.com/*
-                    - https://*.sabian-calculator.com/*
-                    - http://localhost:*/*
-
-#    NewResource:
-#      Type: AWS::S3::Bucket
-#      Properties:
-#        BucketName: my-new-bucket
+        BucketName: ${self:service.name}
 #  Outputs:
 #     NewOutput:
 #       Description: "Description for the output"
