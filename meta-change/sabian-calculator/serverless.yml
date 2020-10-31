@@ -25,15 +25,17 @@ provider:
   runtime: python3.8
 
 # you can overwrite defaults here
-#  stage: dev
+  stage: ${opt:stage, 'dev'}
   region: us-east-1
 
 # you can add statements to the Lambda function's IAM Role here
   iamRoleStatements:
     - Effect: "Allow"
       Action:
-        - "s3:GetObject"
+        - 's3:GetObject'
       Resource: 'arn:aws:s3:::sabian-calculator-vue2-prd/*'
+
+
 #      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
 #    - Effect: "Allow"
 #      Action:
@@ -63,6 +65,17 @@ functions:
     handler: handler.hello
   main:
     handler: handler.main
+    events:
+      - cloudFront:
+          eventType: origin-request
+          pathPattern: '*'
+          origin: s3://sabian-calculator-vue2-prd.s3.amazonaws.com
+          behavior:
+            ViewerProtocolPolicy: redirect-to-https
+            ForwardedValues:
+              QueryString: true
+              QueryStringCacheKeys:
+                - img
 
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
@@ -105,7 +118,49 @@ functions:
 #      variable2: value2
 
 # you can add CloudFormation resource templates here
-#resources:
+
+resources:
+  Resources:
+    IamRoleLambdaExecution:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+                  - edgelambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        Path: "/"
+        RoleName:
+          Fn::Join:
+            - "-"
+            - - ${self:service.name}
+              - ${self:provider.stage}
+              - Ref: AWS::Region
+              - lambdaRole
+    CloudFrontDistribution:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          PriceClass: PriceClass_100
+          Aliases:
+            - 'sabian-calculator.com'
+            - 'www.sabian-calculator.com'
+          ViewerCertificate:
+            AcmCertificateArn: 
+              Fn::Join:
+                - ''
+                -
+                  - 'arn:aws:acm:us-east-1:'
+                  - Ref: AWS::AccountId
+                  - ':certificate/a0eabf37-5218-4dce-9aca-d68747ac014a'
+            SslSupportMethod: sni-only
+
+
 #  Resources:
 #    NewResource:
 #      Type: AWS::S3::Bucket

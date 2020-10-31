@@ -25,6 +25,9 @@ def main(event, context):
   request = event['Records'][0]['cf']['request']
   uri = request['uri']
 
+  if re.search('\.', uri):
+    return request
+
   if re.match('/ja', uri):
     return ja(request)
 
@@ -143,7 +146,7 @@ def ja(request):
     degree = int(url_match.group(2))
     img_num = sign['num'] * 30 + degree
 
-    canonical_url = BASE_URL + '/' + url_match.group()
+    canonical_url = BASE_URL + '/symbols/' + sign_path + '/' + str(degree)
     title =  sign[lang] + str(degree) + '度「' + SABIAN_LIST_JA[img_num - 1]  + '」 | ' + SITE_NAME
     og_img = get_og_img(img_num)
 
@@ -206,7 +209,7 @@ def get_og_img(img_num):
 
   img_num = int(img_num)
   img_num %= 360
-  sign_num = str((img_num - 1) // 12 + 1).zfill(2)
+  sign_num = str((img_num - 1) // 30 + 1).zfill(2)
   degree_num = str((img_num - 1) % 30 + 1).zfill(2)
 
   return {
@@ -311,6 +314,5 @@ def get_sign_info(sign):
   }
 
   return SIGN_LIST[sign.lower()]
-
 
 
