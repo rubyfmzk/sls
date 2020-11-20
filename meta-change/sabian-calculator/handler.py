@@ -16,9 +16,13 @@ with open('./lang/sabian_ja.txt') as f:
   SABIAN_LIST_JA = f.read()
   SABIAN_LIST_JA = SABIAN_LIST_JA.split('\n')
 
+with open('./lang/sabian_fr.txt') as f:
+  SABIAN_LIST_FR = f.read()
+  SABIAN_LIST_FR = SABIAN_LIST_FR.split('\n')
+
 
 def hello(event, context):
-  pass
+  return main(event)
 
 
 def main(event, context):
@@ -31,6 +35,9 @@ def main(event, context):
   if re.match('/ja', uri):
     return ja(request)
 
+  if re.match('/fr', uri):
+    return fr(request)
+
   return en(request)
 
 
@@ -39,7 +46,7 @@ def en(request):
   img_num = get_img_num(request)
   og_img = get_og_img(img_num)
 
-  BASE_URL = 'http://sabian-calculator.com'
+  BASE_URL = 'https://sabian-calculator.com'
   SITE_NAME = 'Sabian Calculator'
 
   title = SITE_NAME
@@ -108,14 +115,13 @@ def ja(request):
   img_num = get_img_num(request)
   og_img = get_og_img(img_num)
 
-  BASE_URL = 'http://sabian-calculator.com/ja'
-  SITE_NAME = 'サビアン計算機'
+  BASE_URL = 'https://sabian-calculator.com/ja'
+  SITE_NAME = 'Sabian Calculator (サビアン計算機)'
   lang = 'ja'
 
   title = SITE_NAME
   description = 'ホロスコープチャートの代わりにイラストでサビアンシンボルを見てみよう。無料オンライン西洋占星術研究サイト。'
   canonical_url = BASE_URL + uri
-
 
   if re.search('calculator', uri):
 
@@ -125,7 +131,7 @@ def ja(request):
 
     elif re.search('harmonics', uri):
       title = 'ハーモニクス計算機 | ' + SITE_NAME
-      description = 'Lハーモニクスのコンジャンクションを一覧で表示'
+      description = 'ハーモニクスのコンジャンクションを一覧で表示'
 
     elif re.search('progression', uri):
       title = 'プログレス計算機 | ' + SITE_NAME
@@ -171,7 +177,77 @@ def ja(request):
   return get_response(og_tag)
 
 
+def fr(request):
+  uri = request['uri']
+  img_num = get_img_num(request)
+  og_img = get_og_img(img_num)
+
+  BASE_URL = 'https://sabian-calculator.com/fr'
+  SITE_NAME = 'Sabian Calculator (Calculatrice Sabian)'
+  lang = 'fr'
+
+  title = SITE_NAME
+  description = 'Obtenez vos Symboles Sabians avec 360 images au lieu du horoscope. Site Web gratuit d\'astrologie en ligne.'
+  canonical_url = BASE_URL + uri
+
+
+  if re.search('calculator', uri):
+
+    if re.search('midpoint', uri):
+      title = 'Point médian | ' + SITE_NAME
+      description = 'Liste des Symboles Sabians du point médian'
+
+    elif re.search('harmonics', uri):
+      title = 'Résonance harmonique | ' + SITE_NAME
+      description = 'Liste des conjonctions dans le horoscope harmoniques'
+
+    elif re.search('progression', uri):
+      title = 'Progression | ' + SITE_NAME
+      description = 'Symboles Sabians de progression horoscope'
+
+    elif re.search('solar_arc', uri):
+      title = 'Arc solaire | ' + SITE_NAME
+      description = 'Symboles Sabians de l\'arc solaire horoscope'
+
+    elif re.search('composite', uri):
+      title = 'Composite | ' + SITE_NAME
+      description = 'Symboles Sabians Liste de la horoscope composite'
+
+  elif re.search('symbols/\w+/\d+', uri):
+    url_match = re.search(r'symbols/(\w+)/(\d+)', uri)
+    sign_path = url_match.group(1)
+    sign = get_sign_info(sign_path)
+    degree = int(url_match.group(2))
+    img_num = sign['num'] * 30 + degree
+
+    canonical_url = BASE_URL + '/' + url_match.group()
+    title =  sign[lang] + ' ' + str(degree) + ' ' + SABIAN_LIST_FR[img_num - 1]  + ' | ' + SITE_NAME
+    og_img = get_og_img(img_num)
+
+  elif re.search('symbols/\w+', uri):
+    url_match = re.search(r'symbols/(\w+)', uri)
+    sign_path = url_match.group(1)
+    sign = get_sign_info(sign_path)
+    img_num = sign['representative_img']
+
+    title = sign[lang] + ' dans la liste des Symboles Sabians | ' + SITE_NAME
+    og_img = get_og_img(img_num)
+
+  elif re.search('symbols', uri):
+    title = 'Liste des Symbols Sabians par signes du zodiaque | ' + SITE_NAME
+    og_img = get_og_img(None)
+
+  else:
+    og_img = get_og_img(None)
+
+  og_tag = get_og_tag(title, description, canonical_url, og_img['url'], og_img['card'])
+
+  return get_response(og_tag)
+
+
 def get_img_num(request):
+  if not 'querystring' in request: return None
+
   # パラメータ
   params = {k : v[0] for k, v in urllib.parse.parse_qs(request['querystring']).items()}
   try:
@@ -242,72 +318,84 @@ def get_sign_info(sign):
     'aries': {
       'en': 'ARIES',
       'ja': '牡羊座',
+      'fr': 'BÉLIER',
       'num': 0,
       'representative_img': 5,
     },
     'taurus': {
       'en': 'TAURUS',
       'ja': '牡牛座',
+      'fr': 'TAUREAU',
       'num': 1,
       'representative_img': 40,
     }, 
     'gemini': {
       'en': 'GEMINI',
       'ja': '双子座',
+      'fr': 'GÉMEAUX',
       'num': 2,
       'representative_img': 77,
     }, 
     'cancer': {
       'en': 'CANCER',
       'ja': '蟹座',
+      'fr': 'CANCER',
       'num': 3,
       'representative_img': 115,
     },
     'leo': {
       'en': 'LEO',
       'ja': '獅子座',
+      'fr': 'LION',
       'num': 4,
       'representative_img': 148,
     },
     'virgo': {
       'en': 'VIRGO',
       'ja': '乙女座',
+      'fr': 'VIERGE',
       'num': 5,
       'representative_img': 154,
     },
     'libra': {
       'en': 'LIBRA',
       'ja': '天秤座',
+      'fr': 'BALANCE',
       'num': 6,
       'representative_img': 183,
     },
     'scorpio': {
       'en': 'SCORPIO',
       'ja': '蠍座',
+      'fr': 'SCORPION',
       'num': 7,
       'representative_img': 214,
     },
     'sagittarius': {
       'en': 'SAGITTARIUS',
       'ja': '射手座',
+      'fr': 'SAGITTAIRE',
       'num': 8,
       'representative_img': 243,
     },
     'capricorn': {
       'en': 'CAPRICORN',
       'ja': '山羊座',
+      'fr': 'CAPRICORNE',
       'num': 9,
       'representative_img': 277,
     },
     'aquarius': {
       'en': 'AQUARIUS',
       'ja': '水瓶座',
+      'fr': 'VERSEAU',
       'num': 10,
       'representative_img': 318,
     },
     'pisces': {
       'en': 'PISCES',
       'ja': '魚座',
+      'fr': 'POISSONS',
       'num': 11,
       'representative_img': 342,
     },
