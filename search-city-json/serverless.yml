@@ -121,4 +121,6 @@ resources:
                 StringLike:
                   aws:Referer:
                     - http://localhost:*/*
+                    - https://sabian-calculator.com/*
+                    - https://www.sabian-calculator.com/*
 
