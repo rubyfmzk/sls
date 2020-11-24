@@ -101,8 +101,6 @@ def to_formal_order(area_name):
 
   if len(area_name_array) == 2:
     return area_name_array[1] + ' ' + area_name_array[0]
-  elif len(area_name_array) == 3:
-    return area_name_array[2] + ' ' + area_name_array[1] + ' ' + area_name_array[0]
   return area_name
 
 
