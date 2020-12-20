@@ -1,4 +1,5 @@
 google-api-python-client
 Google-auth
-oauth2client
+Oauth2client
 requests
+Pyjwt
