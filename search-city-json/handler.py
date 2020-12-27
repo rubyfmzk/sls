@@ -2,22 +2,27 @@ import json
 import boto3
 import csv
 import io
+import re
 
 S3_BUCKET = 'search-city-json'
 csv_key = 'csv/worldcities.csv'
-json_prefix = 'v1/'
+json_prefix = 'v2/'
 
 s3 = boto3.resource('s3')
 s3_bucket = s3.Bucket(S3_BUCKET)
+
+s3_object = s3.Object(S3_BUCKET, csv_key).get()
+city_csv = io.TextIOWrapper(io.BytesIO(s3_object['Body'].read()))
 
 def hello(event, context):
   pass
 
 def create_city_json(event, context):
+  create_city_json_divided_by_country()
+  create_city_json_divided_by_alphabet()
 
-  s3_object = s3.Object(S3_BUCKET, csv_key).get()
-  city_csv = io.TextIOWrapper(io.BytesIO(s3_object['Body'].read()))
 
+def create_city_json_divided_by_country():
   all_cities_dict = {}
 
   for row in csv.DictReader(city_csv):
@@ -83,16 +88,78 @@ def create_city_json(event, context):
         regions_dict[region_key]['cities'][city_key] = all_cities_dict[country_key]['regions'][region_key]['cities'][city_key]
 
     regions_dict = json.dumps(regions_dict)
-    s3_bucket.put_object(Key=json_prefix+countries_dict[country_key]['iso2']+'.json', Body=regions_dict)
+    s3_bucket.put_object(Key=json_prefix+'countries/'+countries_dict[country_key]['iso2']+'.json', Body=regions_dict)
 
   countries_dict = json.dumps(countries_dict)
-  s3_bucket.put_object(Key=json_prefix+'countries.json', Body=countries_dict)
+  s3_bucket.put_object(Key=json_prefix+'countries/index.json', Body=countries_dict)
 
+
+def create_city_json_divided_by_alphabet():
+  all_cities_dict = {}
+
+  for row in csv.DictReader(city_csv):
+
+    #エラー
+    if not (row['city'] and row['lat'] and row['lng']):
+      print('error')
+      print('city: ', row['city'])
+      print('lat:' , row['lat'])
+      print('lng: ', row['lng'])
+      return 'error'
+
+    city_keys = to_key_names(row['city'])
+
+    for city_key in city_keys:
+      if len(city_key) < 3:
+        continue
+
+      alphabet_key = city_key[0:3]
+      
+      if not alphabet_key in all_cities_dict:
+        all_cities_dict[alphabet_key] = []
+
+      all_cities_dict[alphabet_key] += [{
+        'city_key': city_key,
+        'country_name': row['country'],
+        'region_name': row['admin_name'],
+        'city_name': row['city'],
+        'lat': row['lat'],
+        'lon': row['lng'],
+      }]
+      
+  # ソートしてJSON化して保存
+  for alphabet_key in all_cities_dict:
+    sorted_cities = sorted(all_cities_dict[alphabet_key], key=lambda x: x['city_key'])
+    cities_json = json.dumps(sorted_cities)
+    s3_bucket.put_object(Key=json_prefix+'alphabets/'+alphabet_key+'.json', Body=cities_json)
 
 def to_key_name(area_name):
   area_name = to_ascii(area_name)
+  area_name = area_name.lower()
+  area_name = re.sub('[^a-z]', '', area_name)
   area_name = to_formal_order(area_name)
   return area_name
+
+
+# Los Angelesの場合、[losangeles, angeles]を返却
+def to_key_names(area_name):
+  area_name = to_ascii(area_name)
+  area_name = area_name.lower()
+  area_name = to_formal_order(area_name)
+  area_name = re.sub('[^a-z]', ' ', area_name)
+  area_name = re.sub('\s{2,}', ' ', area_name)
+  area_name = area_name.strip(' ')
+  area_name_splits = area_name.split(' ')
+
+  area_names = []
+  area_name_splits_len = len(area_name_splits)
+  for i in range(area_name_splits_len):
+    key = ''
+    for ii in range(area_name_splits_len - i):
+      key += area_name_splits[i + ii]
+    area_names += [key]
+
+  return area_names
 
 
 # 「Korea, South」を「South Korea」に
@@ -162,7 +229,9 @@ def to_ascii(text):
     'ǻ':'a', 'Ǽ':'AE', 'ǽ':'ae', 'Ǿ':'O', 
     'ǿ':'o', 'Ά':'A', '·':'', 'Έ':'E', 
     'Ή':'H', 'Ί':'I', 'Ό':'O', 'Ύ':'Y', 
-    'Ώ':'O', 'ΐ':'I'
+    'Ώ':'O', 'ΐ':'I', 'ə':'a', 'i̇̄':'i',
+    'ḑ':'d', 'ṭ':'t', 'ế':'e', 'ā’':'a',
+    'ả':'a', 'ẩ':'a'
   }
 
   for i in accent_letter_list:
