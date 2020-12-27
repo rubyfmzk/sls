@@ -120,9 +120,10 @@ def create_city_json_divided_by_alphabet():
 
       all_cities_dict[alphabet_key] += [{
         'city_key': city_key,
-        'country_name': row['country'],
-        'region_name': row['admin_name'],
-        'city_name': row['city'],
+        'country_name': to_formal_order(row['country']),
+        'region_name': to_formal_order(row['admin_name']),
+        'city_name': to_formal_order(row['city']),
+        'city_ascii': to_formal_order(to_ascii(row['city'])),
         'lat': row['lat'],
         'lon': row['lng'],
       }]
