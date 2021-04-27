@@ -72,14 +72,48 @@ functions:
             - prefix: sabian-symbols/full/
             - suffix: .jpg
           existing: true
+  collage_object_white_transparent:
+    handler: handler.collage_object_white_transparent
+    layers:
+      - arn:aws:lambda:ap-northeast-1:#{AWS::AccountId}:layer:python-pillow:1
+    events:
+      - s3:
+          bucket: image-manager-rubyfmzk
+          events:
+            - "s3:ObjectCreated:*"
+          rules:
+            - prefix: public/collage/object/
+            - suffix: '.jpg'
+          existing: true
+      - s3:
+          bucket: image-manager-rubyfmzk
+          events:
+            - "s3:ObjectCreated:*"
+          rules:
+            - prefix: public/collage/object/
+            - suffix: '.jpeg'
+          existing: true
+      - s3:
+          bucket: image-manager-rubyfmzk
+          events:
+            - "s3:ObjectCreated:*"
+          rules:
+            - prefix: public/collage/object/
+            - suffix: '.png'
+          existing: true
 
 # you can add CloudFormation resource templates here
 resources:
   Resources:
     NewResource:
-     Type: AWS::S3::Bucket
-     Properties:
-       BucketName: image-manager-rubyfmzk
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: image-manager-rubyfmzk
+        CorsConfiguration:
+          CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, HEAD, PUT, POST]
+            AllowedOrigins: ['*']
     ImageResourceS3BucketPolicy:
       Type: AWS::S3::BucketPolicy
       Properties:
@@ -98,6 +132,18 @@ resources:
                     - https://sabian-calculator.com/*
                     - https://*.sabian-calculator.com/*
                     - http://localhost:*/*
+            - Sid: UploadImage
+              Effect: Allow
+              Principal: "*"
+              Action:
+              - s3:GetObject
+              - s3:PutObject
+              Resource: "arn:aws:s3:::image-manager-rubyfmzk/public/*"
+              Condition:
+                StringLike:
+                  aws:Referer:
+                    - https://*opyxz.cloudfront.net/*
+
  # Outputs:
  #    NewOutput:
  #      Description: "Description for the output"
