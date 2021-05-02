@@ -30,6 +30,7 @@ provider:
 # you can overwrite defaults here
   stage: ${opt:stage, 'dev'}
   region: us-east-1
+  logRetentionInDays: 7
 
 # you can add statements to the Lambda function's IAM Role here
   iamRoleStatements:
