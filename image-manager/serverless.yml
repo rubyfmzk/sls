@@ -22,10 +22,12 @@ frameworkVersion: '2'
 
 plugins:
   - serverless-pseudo-parameters
+
 provider:
   name: aws
   runtime: python3.8
   timeout: 60
+  logRetentionInDays: 7
 
 # you can overwrite defaults here
 #  stage: dev
@@ -42,14 +44,16 @@ provider:
       Resource: arn:aws:s3:::image-manager-rubyfmzk/*
     - Effect: "Allow"
       Action:
-        - "dynamodb:GetItem"
-        - "dynamodb:Query"
-        - "dynamodb:Scan"
+        - "dynamodb:*"
       Resource: arn:aws:dynamodb:ap-northeast-1:#{AWS::AccountId}:table/Collage
+    - Effect: "Allow"
+      Action:
+        - "dynamodb:*"
+      Resource: arn:aws:dynamodb:ap-northeast-1:#{AWS::AccountId}:table/CollageProduct
 
-# you can define service wide environment variables here
-#  environment:
-#    variable1: value1
+custom:
+  env:
+    prd: ${file(env/prd.yml)}
 
 # you can add packaging information here
 #package:
@@ -107,6 +111,14 @@ functions:
             - prefix: public/collage/
             - suffix: '.png'
           existing: true
+      - s3:
+          bucket: image-manager-rubyfmzk
+          events:
+            - "s3:ObjectCreated:*"
+          rules:
+            - prefix: public/collage/
+            - suffix: '.base64'
+          existing: true
   api_collage_list:
     handler: handler.api_collage_list
     layers:
@@ -117,13 +129,26 @@ functions:
           method: get
           cors: true
           integration: lambda
+  api_collage_patch:
+    handler: handler.api_collage_patch
+    layers:
+      - arn:aws:lambda:ap-northeast-1:#{AWS::AccountId}:layer:python-pillow:1
+    events:
+      - http:
+          path: /{image_id}
+          method: patch
+          cors: true
+          integration: lambda
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId: !Ref ApiGatewayWithAuthorizationAuthorizer
   api_collage_list_by_motif:
     handler: handler.api_collage_list_by_motif
     layers:
       - arn:aws:lambda:ap-northeast-1:#{AWS::AccountId}:layer:python-pillow:1
     events:
       - http:
-          path: motifs/{motif}
+          path: /motifs/{motif}
           method: get
           cors: true
           integration: lambda
@@ -131,6 +156,7 @@ functions:
             parameters:
               paths:
                 motif: true
+
 
 # you can add CloudFormation resource templates here
 resources:
@@ -237,9 +263,44 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
+    CollageProductDynamoDb:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        # テーブル名の指定
+        TableName: CollageProduct
+        # キーの型を指定
+        AttributeDefinitions:
+          -
+            AttributeName: motif
+            AttributeType: S
+          -
+            AttributeName: image_id
+            AttributeType: S
+        # キーの種類を指定（ハッシュorレンジキー）
+        KeySchema:
+          -
+            AttributeName: motif
+            KeyType: HASH
+          -
+            AttributeName: image_id
+            KeyType: RANGE
 
-
-
+        # プロビジョニングするキャパシティーユニットの設定
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+    ApiGatewayWithAuthorizationAuthorizer:
+      Type: AWS::ApiGateway::Authorizer
+      DependsOn:
+        - ApiGatewayRestApi # 暗黙的に適用されるが一応入れておく
+      Properties:
+        Name: ApiGatewayWithAuthorizationAuthorizer
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        IdentitySource: method.request.header.Authorization
+        Type: COGNITO_USER_POOLS
+        ProviderARNs:
+          - arn:aws:cognito-idp:ap-northeast-1:#{AWS::AccountId}:userpool/${self:custom.env.${opt:stage}.POOL_ID}
 
  # Outputs:
  #    NewOutput:

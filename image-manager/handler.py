@@ -7,12 +7,14 @@ from PIL import Image
 from io import BytesIO
 from boto3.dynamodb.conditions import Key
 import re
+import base64
 
 
 s3 = boto3.resource('s3')
 bucket = 'image-manager-rubyfmzk'
 ddb = boto3.resource("dynamodb")
-table = ddb.Table('Collage')
+collage_table = ddb.Table('Collage')
+collage_product_table = ddb.Table('CollageProduct')
 
 def resize_put_sabian_images(event, context):
 
@@ -36,6 +38,8 @@ def collage(event, context):
     collage_type = 'background'
   elif '/color/' in org_key:
     collage_type = 'color'
+  elif '/product/' in org_key:
+    collage_type = 'product'
 
   img_name = org_key.replace('public/collage/'+collage_type+'/', '')
   img_name = re.sub(r'\.\w+$', '', img_name)
@@ -47,6 +51,10 @@ def collage(event, context):
     key=org_key,
   )
   obj_body = obj.get()['Body'].read()
+
+  if '.base64' in org_key:
+    obj_body = base64.b64decode(obj_body)
+    
   img = Image.open(BytesIO(obj_body))
   img_rgba = img.convert('RGBA')
   size = img_rgba.size
@@ -103,20 +111,61 @@ def collage(event, context):
     dest = s3.Bucket(bucket)
     dest.copy(source, full_key)
 
+  elif collage_type == 'product':
+    obj = s3.Object(
+      bucket_name=bucket,
+      key=full_key,
+    )
+    obj.put(Body=obj_body, ContentType='image/png')
+
   #thumbnail
   long_side = size[0] if size[0] > size[1] else size[1]
   thumbnail_x = int(size[0] / long_side * 100)
   thumbnail_y = int(size[1] / long_side * 100)
   _resize(bucket, bucket, full_key, thumbnail_key, thumbnail_x, thumbnail_y, 'PNG')
 
+  #dynamoDB
+  if collage_type == 'product':
+    response = collage_product_table.put_item(
+      Item={
+        'motif': 'no_name',
+        'image_id': img_name,
+        'type': collage_type,
+      }
+    )
+  else:
+    response = collage_table.put_item(
+      Item={
+        'motif': 'no_name',
+        'image_id': img_name,
+        'type': collage_type,
+      }
+    )
+
 
 def api_collage_list(event, context):
-  data = table.scan()
+  data = collage_table.scan()
   return data
+
+def api_collage_patch(event, context):
+  motif = event['path']['motif']
+  motif = event['path']['motif']
+
+  response = collage_table.put_item(
+  Item={
+      'year': year,
+      'title': title,
+      'info': {
+          'plot': plot,
+          'rating': rating
+      }
+    }
+  )
+  return response
 
 
 def api_collage_list_by_motif(event, context):
-  data = table.query(
+  data = collage_table.query(
     KeyConditionExpression = Key("motif").eq(event['path']['motif'])
   )
   return data

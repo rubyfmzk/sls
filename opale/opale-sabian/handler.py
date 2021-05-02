@@ -10,12 +10,17 @@ s3 = boto3.resource('s3')
 s3_client = boto3.client('s3')
 bucket = 'opale-sabian'
 tmp_npy = '/tmp/a.npy'
+tmp_jpg = '/tmp/a.jpg'
 
 def hello(event, context):
-  save_luminance_vector('5px', 25)
+  #resize_and_save_all(15)
+  save_luminance_vector(15)
 
 
-def save_luminance_vector(dir, arr_row):
+def save_luminance_vector(px):
+  dir = str(px) + 'px'
+  arr_row = px ** 2
+
   vec = get_luminance_vector(dir, arr_row)
   
   #npのバイナリを保存
@@ -37,6 +42,18 @@ def get_luminance_vector(dir, arr_row):
     vec = np.append(vec, np.array([img_arr]), axis=0)
 
   return vec
+
+
+def save_luminance_image_from_key(key, dir):
+  download_path = '/tmp/{}{}'.format(uuid.uuid4(), tmpkey)
+  s3_client.download_file(bucket, key, download_path)
+  with Image.open(download_path) as image:
+    #輝度のグレースケールに変換
+    image = image.convert('L')
+    #一次元配列
+    image = np.ravel(image)
+    return image
+
 
 
 def get_luminance_array_from_key(key):
