@@ -173,6 +173,7 @@ def api_collage_delete(event, context):
   try:
     Key = {
       'image_id': image_id,
+      'motif': motif,
     }
     collage_table.delete_item(Key=Key)
   except Exception as e:
