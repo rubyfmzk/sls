@@ -205,6 +205,7 @@ resources:
           - AllowedHeaders: ['*']
             AllowedMethods: [GET, HEAD, PUT, POST]
             AllowedOrigins: ['*']
+            ExposedHeaders: [ETag]
     ImageResourceS3BucketPolicy:
       Type: AWS::S3::BucketPolicy
       Properties:
