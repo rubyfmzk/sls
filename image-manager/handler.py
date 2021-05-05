@@ -11,10 +11,10 @@ import base64
 
 
 s3 = boto3.resource('s3')
+s3_client = boto3.client('s3')
 bucket = 'image-manager-rubyfmzk'
 ddb = boto3.resource("dynamodb")
 collage_table = ddb.Table('Collage')
-collage_product_table = ddb.Table('CollageProduct')
 
 def resize_put_sabian_images(event, context):
 
@@ -126,13 +126,7 @@ def collage(event, context):
 
   #dynamoDB
   if collage_type == 'product':
-    response = collage_product_table.put_item(
-      Item={
-        'motif': 'no_name',
-        'image_id': img_name,
-        'type': collage_type,
-      }
-    )
+    pass
   else:
     response = collage_table.put_item(
       Item={
@@ -143,25 +137,82 @@ def collage(event, context):
     )
 
 
+def collage_product_json(event, context):
+  org_key = event['Records'][0]['s3']['object']['key']
+  img_json = org_key.replace('public/collage_product_json/', '')
+  full_key = 'collage/product/json/'+img_json
+  source= { 'Bucket' : bucket, 'Key': org_key}
+  dest = s3.Bucket(bucket)
+  dest.copy(source, full_key)
+
+
 def api_collage_list(event, context):
   data = collage_table.scan()
   return data
 
-def api_collage_patch(event, context):
-  motif = event['path']['motif']
-  motif = event['path']['motif']
 
-  response = collage_table.put_item(
-  Item={
-      'year': year,
-      'title': title,
-      'info': {
-          'plot': plot,
-          'rating': rating
-      }
-    }
-  )
+def api_collage_post(event, context):
+  image_id = event['body']['image_id']
+  motif = event['body']['motif']
+  type_ = event['body']['type']
+  Item = {
+    'motif': motif,
+    'image_id': image_id,
+    'type': type_,
+  }
+
+  response = collage_table.put_item(Item=Item)
   return response
+
+
+def api_collage_delete(event, context):
+  image_id = event['path']['image_id']
+  motif = event['path']['motif']
+  type_ = event['path']['type']
+
+  try:
+    Key = {
+      'image_id': image_id,
+    }
+    collage_table.delete_item(Key=Key)
+  except Exception as e:
+    print(e)
+
+  try:
+    Key = 'collage/'+type_+'/full/'+image_id+'.png'
+    s3_client.delete_object(Bucket=bucket, Key=Key)
+  except Exception as e:
+    print(e)
+
+  try:
+    Key = 'collage/'+type_+'/thumbnail/'+image_id+'.png'
+    s3_client.delete_object(Bucket=bucket, Key=Key)
+  except Exception as e:
+    print(e)
+
+  try:
+    Key = 'collage/'+type_+'/json/'+image_id+'.json'
+    s3_client.delete_object(Bucket=bucket, Key=Key)
+  except Exception as e:
+    print(e)
+
+
+def api_collage_patch(event, context):
+  image_id = event['path']['image_id']
+  motif = event['path']['motif']
+  new_image_id = event['body']['new_image_id']
+  new_motif = event['body']['new_motif']
+  type_ = event['body']['type']
+
+  collage_table.put_item(Item={
+    'motif': new_motif,
+    'image_id': new_image_id,
+    'type': type_,
+  })
+  collage_table.delete_item(Key={
+    'motif': motif,
+    'image_id': image_id,
+  })
 
 
 def api_collage_list_by_motif(event, context):
