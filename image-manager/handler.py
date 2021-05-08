@@ -27,8 +27,16 @@ def resize_put_sabian_images(event, context):
 
 def resize_put_sabian_images_by_event(event, context):
   for record in event['Records']:
-    key = unquote_plus(record['s3']['object']['key'])
-    _resize_put_sabian_images(key, '')
+    org_key = unquote_plus(record['s3']['object']['key'])
+    img_name = org_key.replace('public/sabian-symbols/', '')
+
+    #フルサイズ保管
+    source= { 'Bucket' : bucket, 'Key': org_key}
+    dest = s3.Bucket(bucket)
+    dest.copy(source, 'sabian-symbols/full/'+img_name)
+
+    #リサイズ
+    _resize_put_sabian_images(img_name, 'public/sabian-symbols/')
 
 def collage(event, context):
   org_key = event['Records'][0]['s3']['object']['key']
